@@ -6,9 +6,10 @@ const fileUpload = require('express-fileupload');
 const { upladFile, getFiles, getFile, deleteFile, getFileUrl, getFile2 } = require('./s3.js');
 const cors = require('cors');
 const fs = require('fs');
+const cron = require('node-cron');
 
 // Conectarse a la base de datos de MongoDB
-mongoose.connect('mongodb://0.0.0.0:27017/nombre_de_tu_base_de_datos', {
+mongoose.connect('mongodb://mongodb_container:27017/api_bd', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
@@ -26,9 +27,26 @@ app.get('/', (req, res) => {
 })
 
 app.post('/files', async (req, res) => {
-  const result = await upladFile(req.files.file)
-  res.json({result})
-})
+  try {
+    const file = req.files.file;
+  
+    // Establecer los encabezados en la respuesta
+    res.setHeader('Content-Type', file.mimetype);
+    res.setHeader('Content-Disposition', 'inline');
+  
+    // Imprimir los encabezados en la consola
+    console.log('Content-Type:', res.getHeader('Content-Type'));
+    console.log('Content-Disposition:', res.getHeader('Content-Disposition'));
+  
+    const result = await upladFile(file);
+  
+    res.send(result);
+  } catch (error) {
+    console.error('Error al subir el archivo:', error);
+    res.status(500).send('Error al subir el archivo');
+  }
+});
+
 
 app.get('/files', async (req, res) => {
   const files = await getFiles();
@@ -66,11 +84,8 @@ function extractFileNameFromUrl(url) {
 app.delete('/files/*', async (req, res) => {
   const fileUrl = req.params[0];
 
-  // Realizar la lógica para obtener el nombre del archivo a partir de la URL
-  const fileName = extractFileNameFromUrl(fileUrl);
-
   try {
-    await deleteFile(fileName);
+    await deleteFile(fileUrl);
     res.json({ message: 'Archivo eliminado correctamente' });
   } catch (error) {
     console.error('Error al eliminar el archivo:', error);
@@ -78,6 +93,19 @@ app.delete('/files/*', async (req, res) => {
   }
 });
 
+cron.schedule('0 * * * *', () => {
+  const tempDir = './uploads';
+  fs.readdir(tempDir, (err, files) => {
+    if (err) {
+      console.error('Error al leer la carpeta de archivos temporales:', err);
+      return;
+    }
+    for (const file of files) {
+      fs.unlinkSync(`${tempDir}/${file}`);
+      console.log(`Archivo temporal eliminado: ${file}`);
+    }
+  });
+});
 
 // Rutas
 const categoriasRoutes = require('./routes/categorias.routes');

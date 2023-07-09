@@ -18,7 +18,10 @@ async function upladFile(file) {
     const upladParams = {
       Bucket: 'multimediapfinal',
       Key: file.name,
-      Body: stream
+      Body: stream,
+      ACL: 'public-read',
+      ContentType: file.type,
+      ContentDisposition: 'inline'
     };
   
     try {
@@ -66,13 +69,17 @@ async function getFile2(url) {
   }
   
 
-  async function deleteFile(filename) {
+  async function deleteFile(url) {
+    const fileName = extractFileNameFromUrl(url);
+  
     const command = new DeleteObjectCommand({
       Bucket: 'multimediapfinal',
-      Key: filename
+      Key: fileName
     });
+  
     return await client.send(command);
   }
+  
   
   function getFileUrl(filename) {
     const bucketName = 'multimediapfinal'; // Nombre de tu bucket en S3
